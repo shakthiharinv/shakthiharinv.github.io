@@ -187,9 +187,22 @@ a:hover .ch > span, button:hover .ch > span, a:focus-visible .ch > span, .card:h
   .menu-open .menu { clip-path: inset(0 0 0 0 round 0); visibility: visible; transition: clip-path .75s var(--soft); }
   .menu-big { text-align: center; }
   .menu-big li { overflow: clip; }
-  .menu-big a { display: block; padding: 4px 0; font-size: 44px; font-weight: 500; line-height: 1.1; transform: translateY(80px); transition: transform .7s var(--out); }
+  .menu-big a { display: block; padding: 3px 0; font-size: 30px; font-weight: 600; line-height: 1.05; letter-spacing: -.045em; transform: translateY(80px); transition: transform .7s var(--out); }
   .menu-open .menu-big a { transform: none; transition-delay: calc(.12s + var(--i) * .04s); }
   .menu-big a[aria-current] { color: rgba(255, 255, 255, .45); }
+  /* Contact: one pill with the address; tap to copy */
+  .menu-contact { display: flex; justify-content: center; padding-top: 14px; }
+  .mc-copy { display: inline-flex; max-width: calc(100vw - 48px); padding: 13px 18px; border: 0; border-radius: 6px; cursor: pointer;
+    background: var(--glass); color: var(--glass-fg, #000); font: 500 15px/1.3 var(--font); letter-spacing: -.01em; text-align: left;
+    transform: translateY(80px); transition: transform .7s var(--out); }
+  .menu-open .mc-copy { transform: none; transition-delay: calc(.12s + var(--i) * .04s); }
+  .mc-t { display: grid; } .mc-t > span { grid-area: 1 / 1; transition: opacity .3s var(--soft), transform .4s var(--soft); }
+  .mc-l2 { display: flex; align-items: center; gap: 8px; }
+  .mc-l2 b { font-weight: 600; }
+  .mc-copy svg { width: 16px; height: 16px; flex: none; }
+  .mc-done { display: flex; align-items: center; gap: 8px; opacity: 0; transform: translateY(6px); }
+  .mc-copy.copied .mc-addr { opacity: 0; transform: translateY(-6px); }
+  .mc-copy.copied .mc-done { opacity: 1; transform: none; }
   .menu-tick { position: absolute; left: 0; right: 0; bottom: 0; overflow: clip; font-size: 96px; font-weight: 500; line-height: 1; transform: translateY(120px); transition: transform .8s var(--out); }
   .menu-open .menu-tick { transform: none; transition-delay: .2s; }
   .menu-tick > div { display: flex; width: max-content; animation: menu-tick 14s linear infinite; }
@@ -799,7 +812,9 @@ html[data-palette] .ft-h, html[data-palette] .scr:hover, html[data-palette] .scr
   .nv-mid:has(.nv-sub:not(.peek)) { display: block; left: 0; right: 0; width: auto; }
   .nv-mid:has(.nv-sub:not(.peek)) > .nv-clip, .nv-mid:has(.nv-sub:not(.peek)) > .nv-drop { display: none; }
   .nv-sub.peek, .nv-link.peek { display: none; }
-  .nv-sub { top: 52px; left: 0; right: 0; width: auto; translate: none; overflow-x: auto; padding: 0 15px; scrollbar-width: none; }
+  /* phones: the categories wrap onto two centred lines so none are cut off */
+  .nv-sub { top: 52px; left: 0; right: 0; width: auto; translate: none; flex-wrap: wrap; justify-content: center; gap: 5px; padding: 0 15px; white-space: nowrap; }
+  body:has(.nv-sub:not(.peek)) .nv-frost { height: 150px; }
 }
 
 /* off the Fun page the category row only peeks out while Fun (or the row itself) is hovered: the line
@@ -906,3 +921,41 @@ html[data-palette] .ft-h, html[data-palette] .scr:hover, html[data-palette] .scr
 @media (prefers-reduced-motion: reduce) { .ahoop { display: none; } }
 /* light theme: difference flips the grey (white − colour), so a dark source reads as a light grey on white */
 [data-theme="light"] .aclock, [data-theme="light"] .ahoop { color: #575757; }
+
+/* ---------- phone home: copy in the upper half, a moving image strip below, location/time stacked ---------- */
+.mstrip { display: none; }
+@media (max-width: 809.98px) {
+  .hero-c .hero-main { height: 52vh; height: 52svh; padding-top: 150px; }
+  .mstrip { display: flex; align-items: center; justify-content: center; position: absolute; left: 0; right: 0; top: calc(52vh - 40px); top: calc(52svh - 40px); bottom: 124px; overflow: hidden; pointer-events: none; perspective: 900px; }
+  .mcyl { position: relative; width: 0; transform-style: preserve-3d; animation: mcyl 6s linear infinite; will-change: transform; }
+  .mcyl i { position: absolute; left: 0; top: 0; display: block; background-repeat: no-repeat; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .hero-c .hero-bottom { flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; text-align: center; }
+  .hero-c .hero-bottom p { margin: 0; white-space: nowrap; }
+}
+@keyframes mcyl { from { transform: translateZ(calc(var(--r, 300px) * -1)) rotateY(0deg); } to { transform: translateZ(calc(var(--r, 300px) * -1)) rotateY(-360deg); } }
+@media (prefers-reduced-motion: reduce) { .mcyl { animation: none; } }
+
+/* ---------- About on phones: no clocks/hoop, testimonials stacked, company names bold ---------- */
+@media (max-width: 809.98px) {
+  .aclock, .ahoop { display: none; }
+  .ticker.tmarq { margin-inline: 0; overflow: visible; }
+  .tmarq .track { flex-direction: column; width: auto; padding-right: 0; transform: none !important; }
+  .tmarq .tcopy { display: none; }
+  .tmarq .tcard { width: 100%; gap: 28px; }
+  .tmarq .tcard blockquote { order: -1; }   /* quote first, person underneath */
+  .exp .tr span:first-child { font-weight: 600; }
+}
+
+/* ---------- Work on phones: no cursor button; title + tags sit under each thumbnail ---------- */
+@media (max-width: 809.98px) {
+  .works a.cell { aspect-ratio: auto; cursor: pointer; }
+  .works .card-info { position: static; max-width: none; padding: 10px 0 22px; border-radius: 0; color: var(--fg); background: none; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none; opacity: 1; transform: none; }
+  .works .see-cta { display: none !important; }
+}
+
+/* ---------- Fun on phones: one column; each image's details as text underneath (no hover pill) ---------- */
+@media (max-width: 809.98px) {
+  .g3-cap { position: static; max-width: none; padding: 9px 0 14px; border-radius: 0; color: var(--fg); background: none; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none; opacity: 1; transform: none; }
+}

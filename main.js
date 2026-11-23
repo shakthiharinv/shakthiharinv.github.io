@@ -167,6 +167,18 @@
   }
   setTimeout(() => document.documentElement.classList.add("nv-seen"), 2500);
 
+  /* ---------- phone menu: the Contact email pill copies the address ---------- */
+  {
+    const pill = document.querySelector(".mc-copy");
+    let t = 0;
+    const copy = (mail) => {
+      const fb = () => { const x = Object.assign(document.createElement("textarea"), { value: mail }); document.body.appendChild(x); x.select(); try { document.execCommand("copy"); } catch (_) {} x.remove(); };
+      if (navigator.clipboard) navigator.clipboard.writeText(mail).catch(fb); else fb();
+      if (pill) { pill.classList.add("copied"); clearTimeout(t); t = setTimeout(() => pill.classList.remove("copied"), 1800); }
+    };
+    document.querySelectorAll(".mc-copy").forEach((b) => b.addEventListener("click", () => copy(b.dataset.email)));
+  }
+
   /* ---------- name pill: size it to the label that's showing (name, or "back to home" on hover) ---------- */
   const swap = document.querySelector(".nv-logo:not(.nv-static) .nv-swap");
   if (swap && swap.children.length > 1) {
@@ -328,6 +340,97 @@
     heroMain.style.opacity = String(1 - p * 0.9);
     if (heroBottom) heroBottom.style.opacity = String(1 - p * 1.4);
   });
+
+  /* ---------- phone home: the trail images run as a slow horizontal strip (no interaction) ----------
+     Only built at phone widths, so the desktop page is untouched. Uses the trail's own image list. */
+  {
+    const poolEl2 = document.getElementById("trailPool"), heroEl = document.getElementById("hero");
+    const mq = matchMedia("(max-width: 809.98px)");
+    let made = false;
+    const make = () => {
+      if (made || !mq.matches || !poolEl2 || !heroEl) return;
+      made = true;
+      const list = JSON.parse(poolEl2.textContent);
+      for (let i = list.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [list[i], list[j]] = [list[j], list[i]]; }
+      // images wrap a spinning cylinder (vertical axis): as many as it takes to go round once,
+      // each keeping its own aspect ratio; the radius comes from their total width
+      const wrap = document.createElement("div"); wrap.className = "mstrip a-in"; wrap.style.setProperty("--d", ".45s");
+      wrap.setAttribute("aria-hidden", "true");
+      const cyl = document.createElement("div"); cyl.className = "mcyl";
+      let slots = [], next = 0;
+      wrap.appendChild(cyl); heroEl.appendChild(wrap);
+      const layout = () => {
+        cyl.textContent = "";
+        const H = Math.min(wrap.clientHeight || 250, 250), GAP = 10, TARGET_R = 270;
+        const items = []; let total = 0;
+        for (const it of list) {
+          const w = H * it[1] / it[2];
+          items.push([it[0], w]); total += w + GAP;
+          if (total >= 2 * Math.PI * TARGET_R && items.length >= 6) break;
+        }
+        const R = total / (2 * Math.PI);
+        // each image is cut into narrow vertical slices, each on its own facet, so the picture
+        // itself bends round the drum instead of sitting on one flat panel
+        const SL = 22;
+        let at = 0;
+        slots = [];
+        for (const [src, w] of items) {
+          const n = Math.max(1, Math.round(w / SL)), sw = w / n, faces = [];
+          for (let k = 0; k < n; k++) {
+            const f = document.createElement("i");
+            const ang = (at + (k + 0.5) * sw) / R * 180 / Math.PI;
+            f.style.cssText = `width:${sw + 1}px;height:${H}px;margin-left:${-sw / 2}px;background-image:url("${src}");` +
+              `background-size:${w}px ${H}px;background-position:${-k * sw}px 0;transform:rotateY(${ang}deg) translateZ(${R}px)` +
+              (k === 0 ? ";border-radius:2px 0 0 2px" : k === n - 1 ? ";border-radius:0 2px 2px 0" : "");
+            cyl.appendChild(f); faces.push(f);
+          }
+          slots.push({ faces, w, h: H, sw, mid: (at + w / 2) / R * 180 / Math.PI, back: false });
+          at += w + GAP;
+        }
+        next = items.length;
+        cyl.style.height = H + "px";
+        cyl.style.setProperty("--r", R + "px");
+        cyl.style.animationDuration = Math.max(2.5, total / 520) + "s";   // surface moves ~520px/s
+      };
+      requestAnimationFrame(layout);
+      let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(layout, 200); });
+      // fresh pictures: whenever an image is round the back of the drum (out of sight) it is swapped
+      // for the next one in the list, picked to have a similar shape and cover-fitted to its slot
+      const swapIn = (slot) => {
+        const want = slot.w / slot.h;
+        let best = -1, bd = 1e9;
+        for (let k = 0; k < 8; k++) {
+          const it = list[(next + k) % list.length], d = Math.abs(Math.log((it[1] / it[2]) / want));
+          if (d < bd) { bd = d; best = (next + k) % list.length; }
+        }
+        const [src, iw, ih] = list[best];
+        [list[best], list[next % list.length]] = [list[next % list.length], list[best]];
+        next++;
+        const sc = Math.max(slot.w / iw, slot.h / ih), bw = iw * sc, bh = ih * sc;
+        const ox = (bw - slot.w) / 2, oy = (bh - slot.h) / 2;
+        const im = new Image(); im.src = src;
+        const apply = () => slot.faces.forEach((f, k) => {
+          f.style.backgroundImage = `url("${src}")`;
+          f.style.backgroundSize = `${bw}px ${bh}px`;
+          f.style.backgroundPosition = `${-(ox + k * slot.sw)}px ${-oy}px`;
+        });
+        (im.decode ? im.decode() : Promise.resolve()).then(apply, apply);
+      };
+      setInterval(() => {
+        const a = cyl.getAnimations?.()[0];
+        if (!a || a.currentTime == null || !slots.length) return;
+        const T = parseFloat(cyl.style.animationDuration) * 1000 || 6000;
+        const turn = -360 * ((a.currentTime % T) / T);
+        for (const sl of slots) {
+          const w = (((sl.mid + turn) % 360) + 360) % 360;   // 0 = facing us, 180 = directly behind
+          const behind = w > 115 && w < 245;
+          if (behind && !sl.back) swapIn(sl);
+          sl.back = behind;
+        }
+      }, 120);
+    };
+    make(); mq.addEventListener?.("change", make);
+  }
 
   /* ---------- cursor image trail (alternate hero) ----------
      A new image every ~95px of travel,
@@ -710,8 +813,10 @@ void main(){
   }
 
   /* ---------- tickers: constant drift, nudged by scroll speed & direction ---------- */
+  const phone = matchMedia("(max-width: 809.98px)");
   document.querySelectorAll("[data-marquee]").forEach((wrap) => {
     const track = wrap.querySelector(".track");
+    if (wrap.classList.contains("tmarq") && phone.matches) return;   // phones: testimonials stack, no drift
     const base = parseFloat(wrap.dataset.marquee) || 50;
     const fixed = wrap.dataset.dir ? +wrap.dataset.dir : 0;   // data-dir pins the direction (1 = left→right)
     let x = 0, dir = fixed || -1, half = 0;
@@ -736,6 +841,7 @@ void main(){
   if (tq.length) {
     const align = () => {
       tq.forEach((q) => { q.style.minHeight = ""; });
+      if (phone.matches) return;   // stacked on phones: each card its own height
       const h = Math.max(...tq.map((q) => q.offsetHeight));
       tq.forEach((q) => { q.style.minHeight = h + "px"; });
     };
@@ -851,7 +957,7 @@ void main(){
   /* ---------- Fun: 3D infinite gallery ----------
      Images are packed into masonry lanes (shortest lane first); each lane repeats enough times
      to cover the tilted view and wraps by its own span, so the wall scrolls forever.
-     Settings: 3 lanes (2 on phones), Work-grid gaps, drift 1.5px/frame, glide .95,
+     Settings: 3 lanes (1 on phones), Work-grid gaps, drift 1.5px/frame, glide .95,
      perspective 1200, Tilt = rotateX 20° rotateY -15° rotateZ 5°. Tile heights follow each
      image's aspect ratio. */
   const funPool = document.getElementById("funPool");
@@ -902,7 +1008,7 @@ void main(){
       cw = g3.clientWidth; chh = g3.clientHeight;
       // same rhythm as the Work grid: --gap between tiles, --g page margin at the sides
       const css = getComputedStyle(document.documentElement);
-      const phone = cw < 810, n = phone ? 2 : 3;
+      const phone = cw < 810, n = phone ? 1 : 3;   // phones: a single column
       const gap = parseFloat(css.getPropertyValue("--gap")) || 5, side = parseFloat(css.getPropertyValue("--g")) || 20;
       const laneW = (cw - side * 2 - gap * (n - 1)) / n;
       const CAP = 0, LANE_GAP = gap;   // captions now float inside the image, so tiles sit a gap apart
@@ -1003,7 +1109,7 @@ void main(){
       if (md && md.moved) return;
       paused = !paused;
       g3.classList.toggle("paused", paused);
-      hint.textContent = paused ? "Paused — click to resume" : "";
+      hint.textContent = paused ? (matchMedia("(hover: none)").matches ? "Paused — tap to resume" : "Paused — click to resume") : "";
     });
 
     if (sub) {
@@ -1154,7 +1260,9 @@ void main(){
     };
     const off = () => { on = false; pill.classList.remove("on"); stopFlip(); card = null; };
     let seen = false;   // has the mouse been over the page yet (so p.tx/p.ty are real)
+    const narrow = matchMedia("(max-width: 809.98px)");   // phone layout: no cursor button
     const hoverAt = (c) => {
+      if (narrow.matches) c = null;
       if (c && c !== card) {
         // move into the new thumbnail; arriving fresh, it starts at the cursor instead of flying in
         if (!on) { p.x = p.tx; p.y = p.ty; p.vx = p.vy = 0; }
@@ -1188,6 +1296,7 @@ void main(){
 /* ---------- About: two line-drawn analog clocks (Pacific + India) drifting and bouncing off the viewport edges ---------- */
 (() => {
   if (!document.body.classList.contains("about-pg")) return;
+  if (matchMedia("(max-width: 809.98px)").matches) return;   // phones: no clocks or hoop
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const S = 140;  // clock size, px
   const NS = "http://www.w3.org/2000/svg";
